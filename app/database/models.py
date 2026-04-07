@@ -204,7 +204,7 @@ class AcademicYear(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("end_date > start_date", name="check_valid_date_range"),
+        CheckConstraint( "end_date > start_date", name="ck_academic_year_date_range"),
 
         UniqueConstraint(
             "institute_id",
@@ -267,7 +267,8 @@ class Semester(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("end_date > start_date", name="check_semester_date_range"),
+        CheckConstraint( "end_date > start_date", name="ck_semester_date_range"
+),
 
         UniqueConstraint(
             "academic_year_id",
@@ -704,9 +705,6 @@ class Parent(Base):
 
     name = Column(String, nullable=False)
 
-    relation = Column(String, nullable=False)  
-    # e.g., FATHER, MOTHER, GUARDIAN
-
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
 
@@ -973,9 +971,8 @@ class HostelAllocation(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "end_date IS NULL OR end_date >= start_date",
-            name="check_valid_date_range"
+       CheckConstraint("end_date IS NULL OR end_date >= start_date",
+        name="ck_hostel_allocation_date_range"
         ),
 
         CheckConstraint(
@@ -987,6 +984,12 @@ class HostelAllocation(Base):
             "student_id",
             "academic_year_id",
             name="uq_student_hostel_per_year"
+        ),
+
+        UniqueConstraint(
+            "room_id",
+            "bed_number",
+            name="uq_bed_per_room"
         ),
 
         Index("idx_alloc_student", "student_id"),
@@ -1079,17 +1082,6 @@ class Fee(Base):
         CheckConstraint(
             "paid_amount <= final_amount",
             name="check_paid_not_exceed_final"
-        ),
-        CheckConstraint(
-            "final_amount = total_amount - discount_amount",
-            name="check_final_amount_correct"
-        ),
-        UniqueConstraint(
-            "student_id",
-            "academic_year_id",
-            "semester_id",
-            "fee_type",
-            name="uq_fee_per_student_period_type"
         ),
         Index("idx_fee_student", "student_id"),
         Index("idx_fee_year", "academic_year_id"),
@@ -1254,16 +1246,7 @@ class FeePaymentDocument(Base):
     )
 
 
-# ====================== User & RBAC ======================
-# user_rbac_models.py
 
-from sqlalchemy import (
-    Column, Integer, String, ForeignKey,
-    Index, UniqueConstraint, CheckConstraint,
-    Boolean, DateTime
-)
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 
 # -------------------- USER --------------------
 
@@ -1367,7 +1350,7 @@ class Permission(Base):
 
     permission_id = Column(Integer, primary_key=True)
 
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
     module = Column(String, nullable=True)
     description = Column(String)
 
@@ -1376,6 +1359,9 @@ class Permission(Base):
         back_populates="permission",
         passive_deletes=True
     )
+    __table_args__ = (
+    UniqueConstraint("name", "module", name="uq_permission_name_module"),
+)
 
 # -------------------- ROLE PERMISSION --------------------
 

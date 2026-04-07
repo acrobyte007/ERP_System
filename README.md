@@ -1,3 +1,4 @@
+![HLD Diagram](HLD.png)
 # School/Institute Management System
 
 A comprehensive Institute/ERP Management System designed to handle all aspects of school or college administration.

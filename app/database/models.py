@@ -30,47 +30,36 @@ class Institute(Base):
     __tablename__ = "institutes"
 
     institute_id = Column(Integer, primary_key=True)
-
     name = Column(String, nullable=False)
-
     code = Column(String, unique=True, nullable=False)
-
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
-
     address = Column(JSONB, nullable=True)
-
     status = Column(
         InstituteStatus,
         nullable=False,
         server_default="active"
     )
-
     academic_structure = Column(String, nullable=True)
-
     academic_mode = Column(
         AcademicMode,
         nullable=False
     )
-
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
-
     academic_years = relationship(
         "AcademicYear",
         back_populates="institute",
         cascade="all, delete-orphan",
         passive_deletes=True
     )
-
     students = relationship(
         "Student",
         back_populates="institute",
         cascade="all, delete-orphan",
         passive_deletes=True
     )
-
     employees = relationship(
         "Employee",
         back_populates="institute",
@@ -136,17 +125,13 @@ class Institute(Base):
 
 class AcademicYear(Base):
     __tablename__ = "academic_years"
-
     academic_year_id = Column(Integer, primary_key=True)
-
     institute_id = Column(
         Integer,
         ForeignKey("institutes.institute_id", ondelete="CASCADE"),
         nullable=False
     )
-
     name = Column(String, nullable=False)
-
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
 
@@ -1424,7 +1409,7 @@ class Timetable(Base):
     institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
     semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"))
-
+    class_room = Column(String, nullable=True)
     section_id = Column(Integer, ForeignKey("sections.section_id", ondelete="CASCADE"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
 

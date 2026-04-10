@@ -1,13 +1,10 @@
 from sqlalchemy import (
     Column, Integer, String, Date, Boolean, ForeignKey,
     Text, DECIMAL, TIMESTAMP, UniqueConstraint, Index, Enum,
-    DateTime, CheckConstraint,Time
+    DateTime, CheckConstraint, Time
 )
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-
 from sqlalchemy.sql import func
 
 Base = declarative_base()
@@ -22,10 +19,11 @@ HostelAllocationStatus = Enum("active", "vacated", "cancelled", name="hostel_sta
 FeeStatus = Enum("pending", "partial", "paid", "overdue", name="fee_status")
 PaymentStatus = Enum("success", "failed", "pending", name="payment_status")
 AcademicMode = Enum("year", "semester", name="academic_mode")
-AttendanceStatus = Enum( "present", "absent", "late", "excused", "half_day",name="attendance_status")
+AttendanceStatus = Enum("present", "absent", "late", "excused", "half_day", name="attendance_status")
+DayOfWeek = Enum("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", name="day_of_week")
 
 
-
+# ====================== TABLE 1: Institute ======================
 class Institute(Base):
     __tablename__ = "institutes"
 
@@ -35,83 +33,29 @@ class Institute(Base):
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     address = Column(JSONB, nullable=True)
-    status = Column(
-        InstituteStatus,
-        nullable=False,
-        server_default="active"
-    )
+    status = Column(InstituteStatus, nullable=False, server_default="active")
     academic_structure = Column(String, nullable=True)
-    academic_mode = Column(
-        AcademicMode,
-        nullable=False
-    )
+    academic_mode = Column(AcademicMode, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
-    academic_years = relationship(
-        "AcademicYear",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-    students = relationship(
-        "Student",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-    employees = relationship(
-        "Employee",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
 
-    standards = relationship(
-        "Standard",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    subjects = relationship(
-        "Subject",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    parents = relationship(
-        "Parent",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    hostels = relationship(
-        "Hostel",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    users = relationship(
-        "User",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    roles = relationship(
-        "Role",
-        back_populates="institute",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    academic_years = relationship("AcademicYear", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    students = relationship("Student", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    employees = relationship("Employee", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    standards = relationship("Standard", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    subjects = relationship("Subject", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    parents = relationship("Parent", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    hostels = relationship("Hostel", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    users = relationship("User", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    roles = relationship("Role", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    fee_components = relationship("FeeStructureComponent", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(code) > 0", name="check_code_not_empty"),
-
+        CheckConstraint("email IS NULL OR email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'", name="check_valid_email_format"),
         Index("idx_institutes_code", "code"),
         Index("idx_institutes_status", "status"),
     )
@@ -120,83 +64,32 @@ class Institute(Base):
         return f"<Institute(id={self.institute_id}, code='{self.code}')>"
 
 
-
-
-
+# ====================== TABLE 2: AcademicYear ======================
 class AcademicYear(Base):
     __tablename__ = "academic_years"
+    
     academic_year_id = Column(Integer, primary_key=True)
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-
     is_current = Column(Boolean, default=False, nullable=False)
-
-    status = Column(
-        AcademicYearStatus,
-        nullable=False,
-        server_default="planned"
-    )
-
-   
+    status = Column(AcademicYearStatus, nullable=False, server_default="planned")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
-    institute = relationship(
-        "Institute",
-        back_populates="academic_years",
-        passive_deletes=True
-    )
-
-    semesters = relationship(
-        "Semester",
-        back_populates="academic_year",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    sections = relationship(
-        "Section",
-        back_populates="academic_year",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    enrollments = relationship(
-        "StudentEnrollment",
-        back_populates="academic_year",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    fees = relationship(
-        "Fee",
-        back_populates="academic_year",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    hostel_allocations = relationship(
-        "HostelAllocation",
-        back_populates="academic_year",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="academic_years", passive_deletes=True)
+    semesters = relationship("Semester", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
+    sections = relationship("Section", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
+    enrollments = relationship("StudentEnrollment", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
+    fees = relationship("Fee", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
+    hostel_allocations = relationship("HostelAllocation", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="academic_year", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
-        CheckConstraint( "end_date > start_date", name="ck_academic_year_date_range"),
-
-        UniqueConstraint(
-            "institute_id",
-            "name",
-            name="uq_academic_year_name_per_institute"
-        ),
-
+        CheckConstraint("end_date > start_date", name="ck_academic_year_date_range"),
+        UniqueConstraint("institute_id", "name", name="uq_academic_year_name_per_institute"),
         Index("idx_academic_years_institute", "institute_id"),
         Index("idx_academic_years_current", "institute_id", "is_current"),
     )
@@ -205,62 +98,28 @@ class AcademicYear(Base):
         return f"<AcademicYear(id={self.academic_year_id}, name='{self.name}')>"
 
 
-
-
-
+# ====================== TABLE 3: Semester ======================
 class Semester(Base):
     __tablename__ = "semesters"
 
     semester_id = Column(Integer, primary_key=True)
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
-
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
-    academic_year = relationship(
-        "AcademicYear",
-        back_populates="semesters",
-        passive_deletes=True
-    )
 
-    sections = relationship(
-        "Section",
-        back_populates="semester",
-        passive_deletes=True
-    )
-
-    subjects = relationship(
-        "Subject",
-        back_populates="semester",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    fees = relationship(
-        "Fee",
-        back_populates="semester",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    academic_year = relationship("AcademicYear", back_populates="semesters", passive_deletes=True)
+    sections = relationship("Section", back_populates="semester", passive_deletes=True)
+    subjects = relationship("Subject", back_populates="semester", cascade="all, delete-orphan", passive_deletes=True)
+    fees = relationship("Fee", back_populates="semester", cascade="all, delete-orphan", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="semester", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
-        CheckConstraint( "end_date > start_date", name="ck_semester_date_range"
-),
-
-        UniqueConstraint(
-            "academic_year_id",
-            "name",
-            name="uq_semester_name_per_year"
-        ),
-
+        CheckConstraint("end_date > start_date", name="ck_semester_date_range"),
+        UniqueConstraint("academic_year_id", "name", name="uq_semester_name_per_year"),
         Index("idx_semesters_academic_year", "academic_year_id"),
     )
 
@@ -268,65 +127,28 @@ class Semester(Base):
         return f"<Semester(id={self.semester_id}, name='{self.name}')>"
 
 
-
+# ====================== TABLE 4: Standard ======================
 class Standard(Base):
     __tablename__ = "standards"
 
     standard_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
-    institute = relationship(
-        "Institute",
-        back_populates="standards",
-        passive_deletes=True
-    )
 
-    sections = relationship(
-        "Section",
-        back_populates="standard",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    subjects = relationship(
-        "Subject",
-        back_populates="standard",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    fees = relationship(
-        "Fee",
-        back_populates="standard",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    fee_components = relationship(
-        "FeeComponent",
-        back_populates="standard",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="standards", passive_deletes=True)
+    sections = relationship("Section", back_populates="standard", cascade="all, delete-orphan", passive_deletes=True)
+    subjects = relationship("Subject", back_populates="standard", cascade="all, delete-orphan", passive_deletes=True)
+    fees = relationship("Fee", back_populates="standard", cascade="all, delete-orphan", passive_deletes=True)
+    fee_components = relationship("FeeComponent", back_populates="standard", cascade="all, delete-orphan", passive_deletes=True)
+    fee_structure_components = relationship("FeeStructureComponent", back_populates="standard", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(name) > 0", name="check_standard_name_not_empty"),
-
-        UniqueConstraint(
-            "institute_id",
-            "name",
-            name="uq_standard_name_per_institute"
-        ),
-
+        UniqueConstraint("institute_id", "name", name="uq_standard_name_per_institute"),
         Index("idx_standards_institute", "institute_id"),
     )
 
@@ -334,73 +156,33 @@ class Standard(Base):
         return f"<Standard(id={self.standard_id}, name='{self.name}')>"
 
 
-
-
+# ====================== TABLE 5: Section ======================
 class Section(Base):
     __tablename__ = "sections"
 
     section_id = Column(Integer, primary_key=True)
-
-    standard_id = Column(
-        Integer,
-        ForeignKey("standards.standard_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    semester_id = Column(
-        Integer,
-        ForeignKey("semesters.semester_id", ondelete="SET NULL"),
-        nullable=True
-    )
-
+    standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="CASCADE"), nullable=False)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
+    semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"), nullable=True)
     name = Column(String, nullable=False)
-
     capacity = Column(Integer, nullable=False, default=40)
-
+    class_teacher_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
-    standard = relationship(
-        "Standard",
-        back_populates="sections",
-        passive_deletes=True
-    )
-
-    academic_year = relationship(
-        "AcademicYear",
-        back_populates="sections",
-        passive_deletes=True
-    )
-
-    semester = relationship(
-        "Semester",
-        back_populates="sections",
-        passive_deletes=True
-    )
-
-    enrollments = relationship(
-        "StudentEnrollment",
-        back_populates="section",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    standard = relationship("Standard", back_populates="sections", passive_deletes=True)
+    academic_year = relationship("AcademicYear", back_populates="sections", passive_deletes=True)
+    semester = relationship("Semester", back_populates="sections", passive_deletes=True)
+    class_teacher = relationship("Employee", foreign_keys=[class_teacher_id])
+    enrollments = relationship("StudentEnrollment", back_populates="section", cascade="all, delete-orphan", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="section", cascade="all, delete-orphan", passive_deletes=True)
+    attendances = relationship("Attendance", back_populates="section", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("capacity > 0", name="check_capacity_positive"),
-        UniqueConstraint(
-            "standard_id",
-            "academic_year_id",
-            "semester_id",
-            "name",
-            name="uq_section_per_standard_year_semester"
-        ),
+        UniqueConstraint("standard_id", "academic_year_id", "semester_id", "name", name="uq_section_per_standard_year_semester"),
         Index("idx_sections_standard_year", "standard_id", "academic_year_id"),
         Index("idx_sections_semester", "semester_id"),
     )
@@ -409,163 +191,68 @@ class Section(Base):
         return f"<Section(id={self.section_id}, name='{self.name}')>"
 
 
-
-
+# ====================== TABLE 6: Subject ======================
 class Subject(Base):
     __tablename__ = "subjects"
 
     subject_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    standard_id = Column(
-        Integer,
-        ForeignKey("standards.standard_id", ondelete="CASCADE"),
-        nullable=True
-    )
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="SET NULL"),
-        nullable=True
-    )
-
-    semester_id = Column(
-        Integer,
-        ForeignKey("semesters.semester_id", ondelete="SET NULL"),
-        nullable=True
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
+    standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="CASCADE"), nullable=True)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="SET NULL"), nullable=True)
+    semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"), nullable=True)
     name = Column(String, nullable=False)
     description = Column(JSONB, nullable=True)
-
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
 
-    institute = relationship(
-        "Institute",
-        back_populates="subjects",
-        passive_deletes=True
-    )
-
-    standard = relationship(
-        "Standard",
-        back_populates="subjects",
-        passive_deletes=True
-    )
-
-    academic_year = relationship(
-        "AcademicYear",
-        passive_deletes=True
-    )
-
-    semester = relationship(
-        "Semester",
-        back_populates="subjects",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="subjects", passive_deletes=True)
+    standard = relationship("Standard", back_populates="subjects", passive_deletes=True)
+    academic_year = relationship("AcademicYear", passive_deletes=True)
+    semester = relationship("Semester", back_populates="subjects", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="subject", cascade="all, delete-orphan", passive_deletes=True)
+    attendances = relationship("Attendance", back_populates="subject", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(name) > 0", name="check_subject_name_not_empty"),
-        CheckConstraint(
-            "(standard_id IS NOT NULL OR academic_year_id IS NOT NULL OR semester_id IS NOT NULL)",
-            name="check_subject_scope_not_null"
-        ),
-
+        CheckConstraint("(standard_id IS NOT NULL OR academic_year_id IS NOT NULL OR semester_id IS NOT NULL)", name="check_subject_scope_not_null"),
         Index("idx_subjects_institute", "institute_id"),
         Index("idx_subjects_standard", "standard_id"),
         Index("idx_subjects_year", "academic_year_id"),
         Index("idx_subjects_semester", "semester_id"),
-        UniqueConstraint(
-            "institute_id",
-            "standard_id",
-            "academic_year_id",
-            "semester_id",
-            "name",
-            name="uq_subject_scope_unique"
-        ),
+        UniqueConstraint("institute_id", "standard_id", "academic_year_id", "semester_id", "name", name="uq_subject_scope_unique"),
     )
 
     def __repr__(self):
         return f"<Subject(id={self.subject_id}, name='{self.name}')>"
 
 
-
-
+# ====================== TABLE 7: Student ======================
 class Student(Base):
     __tablename__ = "students"
 
     student_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-
     dob = Column(Date, nullable=True)
-
     gender = Column(String, nullable=True)
-
     admission_year = Column(Integer, nullable=True)
-
-    status = Column(
-        StudentStatus,
-        nullable=False,
-        server_default=StudentStatus.ACTIVE.value
-    )
-
+    status = Column(StudentStatus, nullable=False, server_default=StudentStatus.ACTIVE.value)
     address = Column(JSONB, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
 
-    institute = relationship(
-        "Institute",
-        back_populates="students",
-        passive_deletes=True
-    )
-
-    enrollments = relationship(
-        "StudentEnrollment",
-        back_populates="student",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    fees = relationship(
-        "Fee",
-        back_populates="student",
-        passive_deletes=True
-    )
-
-    payments = relationship(
-        "FeePayment",
-        back_populates="student",
-        passive_deletes=True
-    )
-
-    hostel_allocations = relationship(
-        "HostelAllocation",
-        back_populates="student",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    parents = relationship(
-        "ParentStudent",
-        back_populates="student",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="students", passive_deletes=True)
+    enrollments = relationship("StudentEnrollment", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
+    fees = relationship("Fee", back_populates="student", passive_deletes=True)
+    payments = relationship("FeePayment", back_populates="student", passive_deletes=True)
+    hostel_allocations = relationship("HostelAllocation", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
+    parents = relationship("ParentStudent", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
+    attendances = relationship("Attendance", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(first_name) > 0", name="check_first_name_not_empty"),
@@ -579,93 +266,31 @@ class Student(Base):
         return f"<Student(id={self.student_id}, name='{self.first_name} {self.last_name}')>"
 
 
-
-
+# ====================== TABLE 8: StudentEnrollment ======================
 class StudentEnrollment(Base):
     __tablename__ = "student_enrollments"
 
     enrollment_id = Column(Integer, primary_key=True)
-
-    student_id = Column(
-        Integer,
-        ForeignKey("students.student_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    section_id = Column(
-        Integer,
-        ForeignKey("sections.section_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=False)
+    section_id = Column(Integer, ForeignKey("sections.section_id", ondelete="CASCADE"), nullable=False)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     roll_number = Column(String, nullable=True)
-
     registration_number = Column(String, nullable=True)
-
-    status = Column(
-        EnrollmentStatus,
-        nullable=False,
-        server_default=EnrollmentStatus.ACTIVE.value
-    )
-
-
+    status = Column(EnrollmentStatus, nullable=False, server_default=EnrollmentStatus.ACTIVE.value)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
-    student = relationship(
-        "Student",
-        back_populates="enrollments",
-        passive_deletes=True
-    )
-
-    section = relationship(
-        "Section",
-        back_populates="enrollments",
-        passive_deletes=True
-    )
-
-    academic_year = relationship(
-        "AcademicYear",
-        back_populates="enrollments",
-        passive_deletes=True
-    )
+    # Relationships
+    student = relationship("Student", back_populates="enrollments", passive_deletes=True)
+    section = relationship("Section", back_populates="enrollments", passive_deletes=True)
+    academic_year = relationship("AcademicYear", back_populates="enrollments", passive_deletes=True)
 
     __table_args__ = (
-        CheckConstraint(
-            "roll_number IS NULL OR char_length(roll_number) > 0",
-            name="check_roll_not_empty"
-        ),
-
-        UniqueConstraint(
-            "student_id",
-            "academic_year_id",
-            name="uq_student_enrollment_per_year"
-        ),
-
-        UniqueConstraint(
-            "section_id",
-            "roll_number",
-            name="uq_roll_per_section"
-        ),
-
-        UniqueConstraint(
-            "institute_id",
-            "registration_number",
-            name="uq_registration_number_per_institute"
-        ),
-
+        CheckConstraint("roll_number IS NULL OR char_length(roll_number) > 0", name="check_roll_not_empty"),
+        UniqueConstraint("student_id", "academic_year_id", name="uq_student_enrollment_per_year"),
+        UniqueConstraint("section_id", "roll_number", name="uq_roll_per_section"),
+        UniqueConstraint("institute_id", "registration_number", name="uq_registration_number_per_institute"),
         Index("idx_enroll_student", "student_id"),
         Index("idx_enroll_section", "section_id"),
         Index("idx_enroll_year", "academic_year_id"),
@@ -676,45 +301,27 @@ class StudentEnrollment(Base):
         return f"<Enrollment(id={self.enrollment_id}, student={self.student_id})>"
 
 
-
+# ====================== TABLE 9: Parent ======================
 class Parent(Base):
     __tablename__ = "parents"
 
     parent_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
-
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
-
     address = Column(JSONB, nullable=True)
-
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
 
-    institute = relationship(
-        "Institute",
-        back_populates="parents",
-        passive_deletes=True
-    )
-
-    students = relationship(
-        "ParentStudent",
-        back_populates="parent",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="parents", passive_deletes=True)
+    students = relationship("ParentStudent", back_populates="parent", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(name) > 0", name="check_parent_name_not_empty"),
-
+        CheckConstraint("email IS NULL OR email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'", name="check_valid_email_format"),
         Index("idx_parent_institute", "institute_id"),
         Index("idx_parent_phone", "phone"),
     )
@@ -723,55 +330,24 @@ class Parent(Base):
         return f"<Parent(id={self.parent_id}, name='{self.name}')>"
 
 
-
-
+# ====================== TABLE 10: ParentStudent ======================
 class ParentStudent(Base):
     __tablename__ = "parent_students"
 
     id = Column(Integer, primary_key=True)
-
-    parent_id = Column(
-        Integer,
-        ForeignKey("parents.parent_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    student_id = Column(
-        Integer,
-        ForeignKey("students.student_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    relation = Column(String, nullable=False)  
-
-    is_primary = Column(Boolean, default=False)  
-
+    parent_id = Column(Integer, ForeignKey("parents.parent_id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=False)
+    relation = Column(String, nullable=False)
+    is_primary = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
-    parent = relationship(
-        "Parent",
-        back_populates="students",
-        passive_deletes=True
-    )
-
-    student = relationship(
-        "Student",
-        back_populates="parents",
-        passive_deletes=True
-    )
+    # Relationships
+    parent = relationship("Parent", back_populates="students", passive_deletes=True)
+    student = relationship("Student", back_populates="parents", passive_deletes=True)
 
     __table_args__ = (
-        UniqueConstraint(
-            "parent_id",
-            "student_id",
-            name="uq_parent_student"
-        ),
-
-        CheckConstraint(
-            "char_length(relation) > 0",
-            name="check_relation_not_empty"
-        ),
-
+        UniqueConstraint("parent_id", "student_id", name="uq_parent_student"),
+        CheckConstraint("char_length(relation) > 0", name="check_relation_not_empty"),
         Index("idx_ps_parent", "parent_id"),
         Index("idx_ps_student", "student_id"),
     )
@@ -780,61 +356,32 @@ class ParentStudent(Base):
         return f"<ParentStudent(parent={self.parent_id}, student={self.student_id})>"
 
 
-
+# ====================== TABLE 11: Employee ======================
 class Employee(Base):
     __tablename__ = "employees"
 
     employee_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
-
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
-
     joining_date = Column(Date, nullable=True)
-
-    status = Column(
-        EmployeeStatus,
-        nullable=False,
-        server_default=EmployeeStatus.ACTIVE.value
-    )
-
- 
-    employee_code = Column(String, nullable=True)  # unique per institute
-    designation = Column(String, nullable=True)    # Teacher, Admin, etc.
-
- 
+    status = Column(EmployeeStatus, nullable=False, server_default=EmployeeStatus.ACTIVE.value)
+    employee_code = Column(String, nullable=True)
+    designation = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
 
-
-    institute = relationship(
-        "Institute",
-        back_populates="employees",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="employees", passive_deletes=True)
+    timetables = relationship("Timetable", back_populates="employee", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(name) > 0", name="check_employee_name_not_empty"),
-        UniqueConstraint(
-            "institute_id",
-            "employee_code",
-            name="uq_employee_code_per_institute"
-        ),
-
-        UniqueConstraint(
-            "institute_id",
-            "email",
-            name="uq_employee_email_per_institute"
-        ),
-
+        CheckConstraint("email IS NULL OR email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'", name="check_valid_email_format"),
+        UniqueConstraint("institute_id", "employee_code", name="uq_employee_code_per_institute"),
+        UniqueConstraint("institute_id", "email", name="uq_employee_email_per_institute"),
         Index("idx_employee_institute", "institute_id"),
         Index("idx_employee_email", "email"),
         Index("idx_employee_phone", "phone"),
@@ -844,55 +391,28 @@ class Employee(Base):
         return f"<Employee(id={self.employee_id}, name='{self.name}')>"
 
 
-
-
-
+# ====================== TABLE 12: Hostel ======================
 class Hostel(Base):
     __tablename__ = "hostels"
 
     hostel_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
-    type = Column(String, nullable=True)  
-
+    type = Column(String, nullable=True)
     capacity = Column(Integer, nullable=True)
-
     address = Column(JSONB, nullable=True)
-
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     is_active = Column(Boolean, default=True)
 
-    institute = relationship(
-        "Institute",
-        back_populates="hostels",
-        passive_deletes=True
-    )
-
-    rooms = relationship(
-        "HostelRoom",
-        back_populates="hostel",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    institute = relationship("Institute", back_populates="hostels", passive_deletes=True)
+    rooms = relationship("HostelRoom", back_populates="hostel", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(name) > 0", name="check_hostel_name_not_empty"),
-
         CheckConstraint("capacity IS NULL OR capacity >= 0", name="check_hostel_capacity"),
-
-        UniqueConstraint(
-            "institute_id",
-            "name",
-            name="uq_hostel_name_per_institute"
-        ),
-
+        UniqueConstraint("institute_id", "name", name="uq_hostel_name_per_institute"),
         Index("idx_hostel_institute", "institute_id"),
     )
 
@@ -900,83 +420,56 @@ class Hostel(Base):
         return f"<Hostel(id={self.hostel_id}, name='{self.name}')>"
 
 
+# ====================== TABLE 13: HostelRoom ======================
+class HostelRoom(Base):
+    __tablename__ = "hostel_rooms"
+    
+    room_id = Column(Integer, primary_key=True)
+    hostel_id = Column(Integer, ForeignKey("hostels.hostel_id", ondelete="CASCADE"), nullable=False)
+    room_number = Column(String, nullable=False)
+    capacity = Column(Integer, nullable=False, default=2)
+    floor = Column(Integer, nullable=True)
+    is_available = Column(Boolean, default=True)
+    
+    # Relationships
+    hostel = relationship("Hostel", back_populates="rooms")
+    allocations = relationship("HostelAllocation", back_populates="room", cascade="all, delete-orphan", passive_deletes=True)
+    
+    __table_args__ = (
+        UniqueConstraint("hostel_id", "room_number", name="uq_room_number_per_hostel"),
+        CheckConstraint("capacity > 0", name="check_room_capacity_positive"),
+        Index("idx_hostel_rooms_hostel", "hostel_id"),
+        Index("idx_hostel_rooms_available", "is_available"),
+    )
 
+    def __repr__(self):
+        return f"<HostelRoom(id={self.room_id}, number='{self.room_number}')>"
+
+
+# ====================== TABLE 14: HostelAllocation ======================
 class HostelAllocation(Base):
     __tablename__ = "hostel_allocations"
 
     allocation_id = Column(Integer, primary_key=True)
-
-    student_id = Column(
-        Integer,
-        ForeignKey("students.student_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    room_id = Column(
-        Integer,
-        ForeignKey("hostel_rooms.room_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=False)
+    room_id = Column(Integer, ForeignKey("hostel_rooms.room_id", ondelete="CASCADE"), nullable=False)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
     bed_number = Column(String, nullable=True)
-
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
-
-    status = Column(
-        HostelAllocationStatus,
-        nullable=False,
-        server_default=HostelAllocationStatus.ACTIVE.value
-    )
-
+    status = Column(HostelAllocationStatus, nullable=False, server_default=HostelAllocationStatus.ACTIVE.value)
     created_at = Column(DateTime, server_default=func.now())
 
-    student = relationship(
-        "Student",
-        back_populates="hostel_allocations",
-        passive_deletes=True
-    )
-
-    room = relationship(
-        "HostelRoom",
-        back_populates="allocations",
-        passive_deletes=True
-    )
-
-    academic_year = relationship(
-        "AcademicYear",
-        back_populates="hostel_allocations",
-        passive_deletes=True
-    )
+    # Relationships
+    student = relationship("Student", back_populates="hostel_allocations", passive_deletes=True)
+    room = relationship("HostelRoom", back_populates="allocations", passive_deletes=True)
+    academic_year = relationship("AcademicYear", back_populates="hostel_allocations", passive_deletes=True)
 
     __table_args__ = (
-       CheckConstraint("end_date IS NULL OR end_date >= start_date",
-        name="ck_hostel_allocation_date_range"
-        ),
-
-        CheckConstraint(
-            "bed_number IS NULL OR char_length(bed_number) > 0",
-            name="check_bed_not_empty"
-        ),
-
-        UniqueConstraint(
-            "student_id",
-            "academic_year_id",
-            name="uq_student_hostel_per_year"
-        ),
-
-        UniqueConstraint(
-            "room_id",
-            "bed_number",
-            name="uq_bed_per_room"
-        ),
-
+        CheckConstraint("end_date IS NULL OR end_date >= start_date", name="ck_hostel_allocation_date_range"),
+        CheckConstraint("bed_number IS NULL OR char_length(bed_number) > 0", name="check_bed_not_empty"),
+        UniqueConstraint("student_id", "academic_year_id", name="uq_student_hostel_per_year"),
+        UniqueConstraint("room_id", "bed_number", name="uq_bed_per_room"),
         Index("idx_alloc_student", "student_id"),
         Index("idx_alloc_room", "room_id"),
         Index("idx_alloc_year", "academic_year_id"),
@@ -986,88 +479,38 @@ class HostelAllocation(Base):
         return f"<HostelAllocation(student={self.student_id}, room={self.room_id})>"
 
 
-# ====================== Fee System ======================
-
-
+# ====================== TABLE 15: Fee ======================
 class Fee(Base):
     __tablename__ = "fees"
 
     fee_id = Column(Integer, primary_key=True)
-
-    student_id = Column(
-        Integer,
-        ForeignKey("students.student_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    academic_year_id = Column(
-        Integer,
-        ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    semester_id = Column(
-        Integer,
-        ForeignKey("semesters.semester_id", ondelete="SET NULL"),
-        nullable=True
-    )
-
-    standard_id = Column(
-        Integer,
-        ForeignKey("standards.standard_id", ondelete="SET NULL"),
-        nullable=True
-    )
-
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=False)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
+    semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"), nullable=True)
+    standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="SET NULL"), nullable=True)
     fee_type = Column(String, nullable=False)
     total_amount = Column(DECIMAL(10, 2), nullable=False)
     discount_amount = Column(DECIMAL(10, 2), default=0)
     paid_amount = Column(DECIMAL(10, 2), default=0)
-
     final_amount = Column(DECIMAL(10, 2), nullable=False)
-
-    status = Column(
-        FeeStatus,
-        nullable=False,
-        server_default=FeeStatus.PENDING.value
-    )
-
+    status = Column(FeeStatus, nullable=False, server_default=FeeStatus.PENDING.value)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
+    # Relationships
     student = relationship("Student", back_populates="fees", passive_deletes=True)
-
     academic_year = relationship("AcademicYear", back_populates="fees", passive_deletes=True)
-
     semester = relationship("Semester", back_populates="fees", passive_deletes=True)
-
     standard = relationship("Standard", back_populates="fees", passive_deletes=True)
-
-    components = relationship(
-        "FeeComponent",
-        back_populates="fee",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    payments = relationship(
-        "FeePayment",
-        back_populates="fee",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    components = relationship("FeeComponent", back_populates="fee", cascade="all, delete-orphan", passive_deletes=True)
+    payments = relationship("FeePayment", back_populates="fee", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("total_amount >= 0", name="check_total_amount_positive"),
         CheckConstraint("discount_amount >= 0", name="check_discount_positive"),
         CheckConstraint("paid_amount >= 0", name="check_paid_positive"),
-        CheckConstraint(
-            "discount_amount <= total_amount",
-            name="check_discount_not_exceed_total"
-        ),
-        CheckConstraint(
-            "paid_amount <= final_amount",
-            name="check_paid_not_exceed_final"
-        ),
+        CheckConstraint("discount_amount <= total_amount", name="check_discount_not_exceed_total"),
+        CheckConstraint("paid_amount <= final_amount", name="check_paid_not_exceed_final"),
         Index("idx_fee_student", "student_id"),
         Index("idx_fee_year", "academic_year_id"),
         Index("idx_fee_status", "status"),
@@ -1077,125 +520,80 @@ class Fee(Base):
         return f"<Fee(id={self.fee_id}, student={self.student_id}, final={self.final_amount})>"
 
 
+# ====================== TABLE 16: FeeStructureComponent ======================
 class FeeStructureComponent(Base):
     __tablename__ = "fee_structure_components"
 
     component_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    standard_id = Column(
-        Integer,
-        ForeignKey("standards.standard_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
+    standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     amount = Column(DECIMAL(10, 2), nullable=False)
-
     is_mandatory = Column(Boolean, default=True)
-
     created_at = Column(DateTime, server_default=func.now())
 
+    # Relationships
+    institute = relationship("Institute", back_populates="fee_components", passive_deletes=True)
+    standard = relationship("Standard", back_populates="fee_structure_components", passive_deletes=True)
+
     __table_args__ = (
-        UniqueConstraint(
-            "standard_id",
-            "name",
-            name="uq_component_per_standard"
-        ),
+        UniqueConstraint("standard_id", "name", name="uq_component_per_standard"),
+        CheckConstraint("amount >= 0", name="check_structure_amount_positive"),
+        Index("idx_fee_structure_institute", "institute_id"),
+        Index("idx_fee_structure_standard", "standard_id"),
     )
 
+    def __repr__(self):
+        return f"<FeeStructureComponent(id={self.component_id}, name='{self.name}')>"
 
+
+# ====================== TABLE 17: FeeComponent ======================
 class FeeComponent(Base):
     __tablename__ = "fee_components"
 
     component_id = Column(Integer, primary_key=True)
-
-    fee_id = Column(
-        Integer,
-        ForeignKey("fees.fee_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    fee_id = Column(Integer, ForeignKey("fees.fee_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
-
     amount = Column(DECIMAL(10, 2), nullable=False)
-
     created_at = Column(DateTime, server_default=func.now())
 
-    fee = relationship(
-        "Fee",
-        back_populates="components",
-        passive_deletes=True
-    )
+    # Relationships
+    fee = relationship("Fee", back_populates="components", passive_deletes=True)
+    standard = relationship("Standard", back_populates="fee_components", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("amount >= 0", name="check_component_amount_positive"),
-
         Index("idx_fee_component_fee", "fee_id"),
     )
 
+    def __repr__(self):
+        return f"<FeeComponent(id={self.component_id}, name='{self.name}')>"
 
 
-
-
-
+# ====================== TABLE 18: FeePayment ======================
 class FeePayment(Base):
     __tablename__ = "fee_payments"
 
     payment_id = Column(Integer, primary_key=True)
-
-    fee_id = Column(
-        Integer,
-        ForeignKey("fees.fee_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    fee_id = Column(Integer, ForeignKey("fees.fee_id", ondelete="CASCADE"), nullable=False)
     amount = Column(DECIMAL(10, 2), nullable=False)
-
     payment_method = Column(String, nullable=True)
-
     transaction_id = Column(String, nullable=True)
     receipt_number = Column(String, nullable=False)
-
     remarks = Column(Text, nullable=True)
-
     payment_date = Column(DateTime, server_default=func.now())
-
-    status = Column(
-        PaymentStatus,
-        nullable=False,
-        server_default=PaymentStatus.SUCCESS.value
-    )
+    status = Column(PaymentStatus, nullable=False, server_default=PaymentStatus.SUCCESS.value)
     created_at = Column(DateTime, server_default=func.now())
-    fee = relationship(
-        "Fee",
-        back_populates="payments",
-        passive_deletes=True
-    )
 
-    documents = relationship(
-        "FeePaymentDocument",
-        back_populates="payment",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    # Relationships
+    fee = relationship("Fee", back_populates="payments", passive_deletes=True)
+    student = relationship("Student", back_populates="payments", passive_deletes=True)
+    documents = relationship("FeePaymentDocument", back_populates="payment", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="check_payment_amount_positive"),
-        UniqueConstraint(
-            "receipt_number",
-            name="uq_receipt_number"
-        ),
-        UniqueConstraint(
-            "transaction_id",
-            name="uq_transaction_id"
-        ),
-
+        UniqueConstraint("receipt_number", name="uq_receipt_number"),
+        UniqueConstraint("transaction_id", name="uq_transaction_id"),
         Index("idx_payment_fee", "fee_id"),
         Index("idx_payment_date", "payment_date"),
     )
@@ -1204,169 +602,119 @@ class FeePayment(Base):
         return f"<Payment(id={self.payment_id}, amount={self.amount})>"
 
 
+# ====================== TABLE 19: FeePaymentDocument ======================
 class FeePaymentDocument(Base):
     __tablename__ = "fee_payment_documents"
 
     document_id = Column(Integer, primary_key=True)
-
-    payment_id = Column(
-        Integer,
-        ForeignKey("fee_payments.payment_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    payment_id = Column(Integer, ForeignKey("fee_payments.payment_id", ondelete="CASCADE"), nullable=False)
     file_url = Column(String, nullable=False)
     file_type = Column(String, nullable=True)
-
     uploaded_at = Column(DateTime, server_default=func.now())
 
-    payment = relationship(
-        "FeePayment",
-        back_populates="documents",
-        passive_deletes=True
-    )
+    # Relationships
+    payment = relationship("FeePayment", back_populates="documents", passive_deletes=True)
 
     __table_args__ = (
         Index("idx_payment_doc_payment", "payment_id"),
     )
 
+    def __repr__(self):
+        return f"<FeePaymentDocument(id={self.document_id}, file_type='{self.file_type}')>"
 
 
-
-# -------------------- USER --------------------
-
+# ====================== TABLE 20: User ======================
 class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     aadhar_number = Column(String, nullable=True)
-
     username = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
-
-    # Link to only ONE entity
     student_id = Column(Integer, ForeignKey("students.student_id", ondelete="SET NULL"), nullable=True)
     parent_id = Column(Integer, ForeignKey("parents.parent_id", ondelete="SET NULL"), nullable=True)
     employee_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="SET NULL"), nullable=True)
-
     is_active = Column(Boolean, default=True)
-
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
+    # Relationships
     institute = relationship("Institute", back_populates="users", passive_deletes=True)
-
     student = relationship("Student", passive_deletes=True)
     parent = relationship("Parent", passive_deletes=True)
     employee = relationship("Employee", passive_deletes=True)
-
-    roles = relationship(
-        "UserRole",
-        back_populates="user",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         UniqueConstraint("institute_id", "username", name="uq_username_per_institute"),
         UniqueConstraint("institute_id", "aadhar_number", name="uq_aadhar_per_institute"),
         CheckConstraint(
-            """
-            (student_id IS NOT NULL)::int +
-            (parent_id IS NOT NULL)::int +
-            (employee_id IS NOT NULL)::int <= 1
-            """,
+            "CASE WHEN student_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN parent_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN employee_id IS NOT NULL THEN 1 ELSE 0 END <= 1",
             name="check_single_user_identity"
         ),
-
         Index("idx_users_institute_id", "institute_id"),
     )
 
-# -------------------- ROLE --------------------
+    def __repr__(self):
+        return f"<User(id={self.user_id}, username='{self.username}')>"
 
+
+# ====================== TABLE 21: Role ======================
 class Role(Base):
     __tablename__ = "roles"
 
     role_id = Column(Integer, primary_key=True)
-
-    institute_id = Column(
-        Integer,
-        ForeignKey("institutes.institute_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(String)
-
     created_at = Column(DateTime, server_default=func.now())
 
+    # Relationships
     institute = relationship("Institute", back_populates="roles", passive_deletes=True)
-
-    role_permissions = relationship(
-        "RolePermission",
-        back_populates="role",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
-
-    user_roles = relationship(
-        "UserRole",
-        back_populates="role",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
+    role_permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan", passive_deletes=True)
+    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         UniqueConstraint("institute_id", "name", name="uq_role_name_per_institute"),
         Index("idx_roles_institute_id", "institute_id"),
     )
 
-# -------------------- PERMISSION --------------------
+    def __repr__(self):
+        return f"<Role(id={self.role_id}, name='{self.name}')>"
 
+
+# ====================== TABLE 22: Permission ======================
 class Permission(Base):
     __tablename__ = "permissions"
 
     permission_id = Column(Integer, primary_key=True)
-
     name = Column(String, nullable=False)
     module = Column(String, nullable=True)
     description = Column(String)
 
-    role_permissions = relationship(
-        "RolePermission",
-        back_populates="permission",
-        passive_deletes=True
-    )
+    # Relationships
+    role_permissions = relationship("RolePermission", back_populates="permission", passive_deletes=True)
+
     __table_args__ = (
-    UniqueConstraint("name", "module", name="uq_permission_name_module"),
-)
+        UniqueConstraint("name", "module", name="uq_permission_name_module"),
+    )
 
-# -------------------- ROLE PERMISSION --------------------
+    def __repr__(self):
+        return f"<Permission(id={self.permission_id}, name='{self.name}')>"
 
+
+# ====================== TABLE 23: RolePermission ======================
 class RolePermission(Base):
     __tablename__ = "role_permissions"
 
     id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="CASCADE"), nullable=False)
+    permission_id = Column(Integer, ForeignKey("permissions.permission_id", ondelete="CASCADE"), nullable=False)
 
-    role_id = Column(
-        Integer,
-        ForeignKey("roles.role_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    permission_id = Column(
-        Integer,
-        ForeignKey("permissions.permission_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    # Relationships
     role = relationship("Role", back_populates="role_permissions", passive_deletes=True)
     permission = relationship("Permission", back_populates="role_permissions", passive_deletes=True)
 
@@ -1374,25 +722,19 @@ class RolePermission(Base):
         UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
     )
 
-# -------------------- USER ROLE --------------------
+    def __repr__(self):
+        return f"<RolePermission(role={self.role_id}, permission={self.permission_id})>"
 
+
+# ====================== TABLE 24: UserRole ======================
 class UserRole(Base):
     __tablename__ = "user_roles"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="CASCADE"), nullable=False)
 
-    user_id = Column(
-        Integer,
-        ForeignKey("users.user_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
-    role_id = Column(
-        Integer,
-        ForeignKey("roles.role_id", ondelete="CASCADE"),
-        nullable=False
-    )
-
+    # Relationships
     user = relationship("User", back_populates="roles", passive_deletes=True)
     role = relationship("Role", back_populates="user_roles", passive_deletes=True)
 
@@ -1400,45 +742,75 @@ class UserRole(Base):
         UniqueConstraint("user_id", "role_id", name="uq_user_role"),
     )
 
+    def __repr__(self):
+        return f"<UserRole(user={self.user_id}, role={self.role_id})>"
 
+
+# ====================== TABLE 25: Timetable ======================
 class Timetable(Base):
     __tablename__ = "timetables"
 
     timetable_id = Column(Integer, primary_key=True)
-
     institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
-    semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"))
-    class_room = Column(String, nullable=True)
+    semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"), nullable=True)
     section_id = Column(Integer, ForeignKey("sections.section_id", ondelete="CASCADE"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
-
-    day_of_week = Column(Enum(
-        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
-        name="day_of_week"
-    ), nullable=False)
-
+    employee_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="SET NULL"), nullable=True)
+    class_room = Column(String, nullable=True)
+    day_of_week = Column(DayOfWeek, nullable=False)
     period_number = Column(Integer, nullable=False)
-
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
 
-    employee_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="SET NULL"))
+    # Relationships
+    institute = relationship("Institute", back_populates="timetables", passive_deletes=True)
+    academic_year = relationship("AcademicYear", back_populates="timetables", passive_deletes=True)
+    semester = relationship("Semester", back_populates="timetables", passive_deletes=True)
+    section = relationship("Section", back_populates="timetables", passive_deletes=True)
+    subject = relationship("Subject", back_populates="timetables", passive_deletes=True)
+    employee = relationship("Employee", back_populates="timetables", passive_deletes=True)
 
     __table_args__ = (
-        Index("idx_timetable_section_day", "section_id", "day_of_week"),
-        Index("idx_timetable_academic_year", "academic_year_id"),
-
-        UniqueConstraint(
-            "section_id", "academic_year_id", "day_of_week", "period_number",
-            name="uq_timetable_slot_per_section"
-        ),
-
-        UniqueConstraint(
-            "employee_id", "day_of_week", "period_number", "academic_year_id",
-            name="uq_teacher_schedule_conflict"
-        ),
-
+        UniqueConstraint("section_id", "academic_year_id", "day_of_week", "period_number", name="uq_timetable_slot_per_section"),
+        UniqueConstraint("employee_id", "day_of_week", "period_number", "academic_year_id", name="uq_teacher_schedule_conflict"),
         CheckConstraint("start_time < end_time", name="check_valid_time_range"),
         CheckConstraint("period_number > 0 AND period_number <= 12", name="check_valid_period"),
+        Index("idx_timetable_section_day", "section_id", "day_of_week"),
+        Index("idx_timetable_academic_year", "academic_year_id"),
+        Index("idx_timetable_employee", "employee_id"),
     )
+
+    def __repr__(self):
+        return f"<Timetable(id={self.timetable_id}, section={self.section_id})>"
+
+
+# ====================== TABLE 26: Attendance ======================
+class Attendance(Base):
+    __tablename__ = "attendances"
+    
+    attendance_id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=False)
+    section_id = Column(Integer, ForeignKey("sections.section_id", ondelete="CASCADE"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False)
+    status = Column(AttendanceStatus, nullable=False)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    
+    # Relationships
+    student = relationship("Student", back_populates="attendances", passive_deletes=True)
+    section = relationship("Section", back_populates="attendances", passive_deletes=True)
+    subject = relationship("Subject", back_populates="attendances", passive_deletes=True)
+    
+    __table_args__ = (
+        UniqueConstraint("student_id", "date", "subject_id", name="uq_student_daily_attendance"),
+        CheckConstraint("date <= CURRENT_DATE", name="check_attendance_not_future"),
+        Index("idx_attendance_date", "date"),
+        Index("idx_attendance_section", "section_id"),
+        Index("idx_attendance_student", "student_id"),
+        Index("idx_attendance_subject", "subject_id"),
+    )
+
+    def __repr__(self):
+        return f"<Attendance(id={self.attendance_id}, student={self.student_id}, date='{self.date}')>"

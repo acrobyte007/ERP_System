@@ -21,8 +21,10 @@ PaymentStatus = Enum("success", "failed", "pending", name="payment_status")
 AcademicMode = Enum("year", "semester", name="academic_mode")
 AttendanceStatus = Enum("present", "absent", "late", "excused", "half_day", name="attendance_status")
 DayOfWeek = Enum("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", name="day_of_week")
-
-
+TransactionType = Enum("purchase", "issue", "return", "lost", "damaged", name="transaction_type")
+LostBookChargeType = Enum("current_price", "replacement_price", "fixed", name="lost_book_charge_type")
+book_condition = Enum("new", "good", "worn", "damaged", name="book_condition")
+bookcopy_status =Enum("available", "issued", "lost", "damaged", "under_repair", name="copy_status")
 # ====================== TABLE 1: Institute ======================
 class Institute(Base):
     __tablename__ = "institutes"
@@ -52,6 +54,9 @@ class Institute(Base):
     roles = relationship("Role", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
     timetables = relationship("Timetable", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
     fee_components = relationship("FeeStructureComponent", back_populates="institute", cascade="all, delete-orphan", passive_deletes=True)
+    books = relationship("Book", back_populates="institute", cascade="all, delete-orphan")
+    book_transactions = relationship("BookTransaction", back_populates="institute", cascade="all, delete-orphan")
+    library_settings = relationship("LibrarySettings", back_populates="institute", uselist=False, cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("char_length(code) > 0", name="check_code_not_empty"),
@@ -253,6 +258,7 @@ class Student(Base):
     hostel_allocations = relationship("HostelAllocation", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
     parents = relationship("ParentStudent", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
     attendances = relationship("Attendance", back_populates="student", cascade="all, delete-orphan", passive_deletes=True)
+    book_transactions = relationship("BookTransaction", back_populates="student")
 
     __table_args__ = (
         CheckConstraint("char_length(first_name) > 0", name="check_first_name_not_empty"),
@@ -488,6 +494,7 @@ class Fee(Base):
     academic_year_id = Column(Integer, ForeignKey("academic_years.academic_year_id", ondelete="CASCADE"), nullable=False)
     semester_id = Column(Integer, ForeignKey("semesters.semester_id", ondelete="SET NULL"), nullable=True)
     standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="SET NULL"), nullable=True)
+    book_transaction_id = Column(Integer, ForeignKey("book_transactions.transaction_id", ondelete="SET NULL"), nullable=True)
     fee_type = Column(String, nullable=False)
     total_amount = Column(DECIMAL(10, 2), nullable=False)
     discount_amount = Column(DECIMAL(10, 2), default=0)
@@ -504,7 +511,8 @@ class Fee(Base):
     standard = relationship("Standard", back_populates="fees", passive_deletes=True)
     components = relationship("FeeComponent", back_populates="fee", cascade="all, delete-orphan", passive_deletes=True)
     payments = relationship("FeePayment", back_populates="fee", cascade="all, delete-orphan", passive_deletes=True)
-
+    
+    book_transaction = relationship("BookTransaction", back_populates="fee")
     __table_args__ = (
         CheckConstraint("total_amount >= 0", name="check_total_amount_positive"),
         CheckConstraint("discount_amount >= 0", name="check_discount_positive"),
@@ -814,3 +822,160 @@ class Attendance(Base):
 
     def __repr__(self):
         return f"<Attendance(id={self.attendance_id}, student={self.student_id}, date='{self.date}')>"
+
+
+
+# ====================== LIBRARY MODULE ======================
+
+class Book(Base):
+    __tablename__ = "books"
+
+    book_id = Column(Integer, primary_key=True)
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=True)
+    publisher = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    subject_id = Column(Integer, ForeignKey("subjects.subject_id", ondelete="SET NULL"), nullable=True)
+    standard_id = Column(Integer, ForeignKey("standards.standard_id", ondelete="SET NULL"), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+    
+    # Relationships
+    institute = relationship("Institute", back_populates="books")
+    copies = relationship("BookCopy", back_populates="book", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        CheckConstraint("char_length(title) > 0", name="check_book_title_not_empty"),
+        Index("idx_books_institute", "institute_id"),
+        Index("idx_books_title", "title"),
+        Index("idx_books_category", "category"),
+        Index("idx_books_subject", "subject_id"),
+        Index("idx_books_standard", "standard_id"),
+    )
+
+
+
+class BookCopy(Base):
+    __tablename__ = "book_copies"
+    
+    copy_id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.book_id", ondelete="CASCADE"), nullable=False)
+    copy_number = Column(String, nullable=False)  # e.g., "C001", "C002"
+    isbn = Column(String(13), nullable=True)  # Different ISBN per copy possible
+    edition = Column(String, nullable=True)  # 1st, 2nd, 3rd edition
+    barcode = Column(String, nullable=True)
+    condition = Column(book_condition, nullable=False)
+    status = Column(bookcopy_status, nullable=False)
+    purchase_date = Column(Date, nullable=True)
+    purchase_price = Column(DECIMAL(10, 2), nullable=True)
+    location = Column(String, nullable=True)  # Rack/Shelf number
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+    
+    # Relationships
+    book = relationship("Book", back_populates="copies")
+    transactions = relationship("BookTransaction", back_populates="copy", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        UniqueConstraint("book_id", "copy_number", name="uq_copy_number_per_book"),
+        UniqueConstraint("barcode", name="uq_barcode"),
+        CheckConstraint("purchase_price IS NULL OR purchase_price >= 0", name="check_purchase_price_positive"),
+        Index("idx_book_copies_book", "book_id"),
+        Index("idx_book_copies_isbn", "isbn"),
+        Index("idx_book_copies_barcode", "barcode"),
+        Index("idx_book_copies_status", "status"),
+        Index("idx_book_copies_condition", "condition"),
+    )
+
+
+
+class BookTransaction(Base):
+    __tablename__ = "book_transactions"
+    
+    transaction_id = Column(Integer, primary_key=True)
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
+    copy_id = Column(Integer, ForeignKey("book_copies.copy_id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.student_id", ondelete="CASCADE"), nullable=True)
+    transaction_type = Column(TransactionType, nullable=False)
+    issue_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
+    return_date = Column(Date, nullable=True)
+    fine_amount = Column(DECIMAL(10, 2), default=0)
+    remarks = Column(Text, nullable=True)
+    transaction_date = Column(DateTime, server_default=func.now())
+    created_by = Column(Integer, ForeignKey("employees.employee_id", ondelete="SET NULL"), nullable=True)
+    institute = relationship("Institute", back_populates="book_transactions")
+    copy = relationship("BookCopy", back_populates="transactions")
+    student = relationship("Student", back_populates="book_transactions")
+    creator = relationship("Employee", foreign_keys=[created_by])
+    fee = relationship("Fee", back_populates="book_transaction", uselist=False)
+    
+    __table_args__ = (
+        CheckConstraint("fine_amount >= 0", name="check_fine_positive"),
+        CheckConstraint(
+            "(transaction_type = 'issue' AND issue_date IS NOT NULL AND due_date IS NOT NULL AND student_id IS NOT NULL) OR "
+            "(transaction_type != 'issue')",
+            name="check_issue_requirements"
+        ),
+        CheckConstraint(
+            "(transaction_type = 'return' AND return_date IS NOT NULL) OR "
+            "(transaction_type != 'return')",
+            name="check_return_requirements"
+        ),
+        Index("idx_book_txns_institute", "institute_id"),
+        Index("idx_book_txns_copy", "copy_id"),
+        Index("idx_book_txns_student", "student_id"),
+        Index("idx_book_txns_type", "transaction_type"),
+        Index("idx_book_txns_dates", "issue_date", "due_date", "return_date"),
+        Index("idx_book_txns_transaction_date", "transaction_date"),
+    )
+
+
+class LibrarySettings(Base):
+    __tablename__ = "library_settings"
+
+    setting_id = Column(Integer, primary_key=True)
+    institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False, unique=True)
+    max_books_per_student = Column(Integer, nullable=False, default=5)
+    max_borrow_days = Column(Integer, nullable=False, default=14)
+    allow_renewal = Column(Boolean, default=True)
+    max_renewals = Column(Integer, default=2)
+    renewal_days = Column(Integer, default=7)
+    fine_per_day = Column(DECIMAL(10, 2), nullable=False)
+    max_fine_per_book = Column(DECIMAL(10, 2), nullable=True)
+    lost_book_charge = Column(LostBookChargeType, nullable=False)
+    lost_book_multiplier = Column(DECIMAL(3, 2), default=1.5)
+    lost_book_fixed_amount = Column(DECIMAL(10, 2), nullable=True)
+    damage_charge_percentage = Column(DECIMAL(5, 2))
+    allow_reservation = Column(Boolean, default=True)
+    max_reservation_days = Column(Integer, default=7)
+    reservation_expiry_days = Column(Integer, default=3)
+    exclude_weekends = Column(Boolean, default=False) 
+    exclude_holidays = Column(JSONB, nullable=True)  
+    grace_period_days = Column(Integer, default=0) 
+    send_due_date_reminder = Column(Boolean, default=True)
+    reminder_days_before = Column(Integer, default=3)
+    send_overdue_notification = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+    institute = relationship("Institute", back_populates="library_settings")
+    
+    __table_args__ = (
+        CheckConstraint("max_books_per_student > 0", name="check_max_books_positive"),
+        CheckConstraint("max_borrow_days > 0", name="check_max_borrow_days_positive"),
+        CheckConstraint("fine_per_day >= 0", name="check_fine_per_day_positive"),
+        CheckConstraint("max_renewals >= 0", name="check_max_renewals_positive"),
+        CheckConstraint("renewal_days > 0", name="check_renewal_days_positive"),
+        CheckConstraint("grace_period_days >= 0", name="check_grace_period_positive"),
+        CheckConstraint("lost_book_multiplier >= 1", name="check_lost_book_multiplier"),
+        CheckConstraint("damage_charge_percentage BETWEEN 0 AND 100", name="check_damage_percentage"),
+        Index("idx_library_settings_institute", "institute_id"),
+        Index("idx_library_settings_active", "is_active"),
+    )
+    
+    def __repr__(self):
+        return f"<LibrarySettings(institute={self.institute_id}, max_books={self.max_books_per_student})>"

@@ -244,7 +244,7 @@ class Student(Base):
     dob = Column(Date, nullable=True)
     gender = Column(String, nullable=True)
     admission_year = Column(Integer, nullable=True)
-    status = Column(StudentStatus, nullable=False, server_default=StudentStatus.ACTIVE.value)
+    status = Column(StudentStatus, nullable=False)
     address = Column(JSONB, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
@@ -283,7 +283,7 @@ class StudentEnrollment(Base):
     institute_id = Column(Integer, ForeignKey("institutes.institute_id", ondelete="CASCADE"), nullable=False)
     roll_number = Column(String, nullable=True)
     registration_number = Column(String, nullable=True)
-    status = Column(EnrollmentStatus, nullable=False, server_default=EnrollmentStatus.ACTIVE.value)
+    status = Column(EnrollmentStatus, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
@@ -372,7 +372,7 @@ class Employee(Base):
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     joining_date = Column(Date, nullable=True)
-    status = Column(EmployeeStatus, nullable=False, server_default=EmployeeStatus.ACTIVE.value)
+    status = Column(EmployeeStatus, nullable=False)
     employee_code = Column(String, nullable=True)
     designation = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -463,7 +463,7 @@ class HostelAllocation(Base):
     bed_number = Column(String, nullable=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
-    status = Column(HostelAllocationStatus, nullable=False, server_default=HostelAllocationStatus.ACTIVE.value)
+    status = Column(HostelAllocationStatus, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
@@ -500,7 +500,7 @@ class Fee(Base):
     discount_amount = Column(DECIMAL(10, 2), default=0)
     paid_amount = Column(DECIMAL(10, 2), default=0)
     final_amount = Column(DECIMAL(10, 2), nullable=False)
-    status = Column(FeeStatus, nullable=False, server_default=FeeStatus.PENDING.value)
+    status = Column(FeeStatus, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 
@@ -590,7 +590,7 @@ class FeePayment(Base):
     receipt_number = Column(String, nullable=False)
     remarks = Column(Text, nullable=True)
     payment_date = Column(DateTime, server_default=func.now())
-    status = Column(PaymentStatus, nullable=False, server_default=PaymentStatus.SUCCESS.value)
+    status = Column(PaymentStatus, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
